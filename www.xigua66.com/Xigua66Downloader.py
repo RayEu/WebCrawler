@@ -74,16 +74,39 @@ class Xigua66Downloader:
         target_js = re.findall('<ul id="playlist"><script type="text/javascript" src="(.*?)"></script>',data)[0]
         data = self.open_web("http://www.xigua66.com"+target_js).decode('gbk')
         data = urllib.parse.unquote(data)
-        result = re.findall('https://(.*?)\$', data)
-        print('可用的url地址为:')
-        print("https://"+result[0])
-        return "https://"+result[0]
+
+        find_33uu = re.findall('33uu\$\$(.*)33uu\$\$', data)
+        if len(find_33uu) == 0:
+            find_zyp = re.findall('zyp\$\$(.*)zyp\$\$', data)
+            if len(find_zyp) != 0:
+                find = find_zyp[0]
+                label = 'zyp'
+        else:
+            find = find_33uu[0]
+            label = '33uu'
+        tv_lists = re.findall('%u7B2C(.*?)%u96C6\$https://(.*?)\$', find)#[(集数,url)]
+        return tv_lists, label
 
     '''第二步、获取各个ts文件数量与名称'''
-    def get_playlist(self, url):
+    def get_playlist(self, tv_lists, label):
+        num = int(re.findall('player-(.*?).html', self.url)[0].split('-')[-1])
+        url = 'https://' + tv_lists[num][-1]
+        print('开始下载第'+str(num+1)+'集：\n'+url)
         print('开始获取playlist_url')
         ts_data = self.open_web(url).decode('utf-8')
-        self.palylist_url = re.findall("video: {\n            url: '(.*?)',", ts_data)[0]
+
+        if label == '33uu':
+            self.palylist_url = re.findall("url: '(.*?\.m3u8)'", ts_data)[-1]
+        else:#label='zyp'
+            self.palylist_url = re.findall("url: '(.*?\.m3u8)'", ts_data)[-1]
+
+        #url检查
+        #/2019/04/03/dkqcLONDC9I26yyG/playlist.m3u8
+        #https://www4.yuboyun.com/hls/2019/02/27/9eBF1A0o/playlist.m3u8
+        if self.palylist_url.startswith('http'):
+            pass
+        else:
+            self.palylist_url = re.findall('(http.*?\.com)', url)[0] + self.palylist_url
         print(self.palylist_url)
         print('开始获取playlist')
         palylist_data = self.open_web(self.palylist_url).decode('utf-8')
@@ -178,9 +201,9 @@ class Xigua66Downloader:
         self.merge_ts_file_with_os()
     
 if __name__ == '__main__':
-    web_url= "http://www.xigua66.com/mainland/yitiantulongji2019/player-0-1.html"
+    web_url= "http://www.xigua66.com/mainland/yitiantulongji2019/player-0-36.html"
     down = Xigua66Downloader(web_url)
-    available_IP = down.get_available_IP()
-    ts_list = down.get_playlist(available_IP)
+    available_IP, label = down.get_available_IP()
+    ts_list = down.get_playlist(available_IP, label)
     down.download_with_multi_process(ts_list)
     down.merge_ts_file_with_os()
