@@ -21,8 +21,8 @@ class Xigua66Downloader:
           "Connection": "keep-alive"   
           }
         self.cjar = http.cookiejar.CookieJar()
-        self.cookie = urllib.request.HTTPCookieProcessor(self.cjar)  
-        self.opener = urllib.request.build_opener(self.cookie)      
+        self.cookie = urllib.request.HTTPCookieProcessor(self.cjar)
+        self.opener = urllib.request.build_opener(self.cookie) 
         urllib.request.install_opener(self.opener)
 
         self.pool = ThreadPoolExecutor(max_workers=10)
@@ -56,9 +56,9 @@ class Xigua66Downloader:
                 
     def open_web(self, url):
         try:
-            response = self.opener.open(url, timeout=3)    
+            response = self.opener.open(url, timeout=5)    
         except urllib.error.URLError as e:
-            print('open ' + url + ' error')
+            print('open ' + str(url) + ' error')
             if hasattr(e, 'code'):    
                 print(e.code)    
             if hasattr(e, 'reason'):    
@@ -75,30 +75,42 @@ class Xigua66Downloader:
         data = self.open_web("http://www.xigua66.com"+target_js).decode('gbk')
         data = urllib.parse.unquote(data)
 
-        find_33uu = re.findall('33uu\$\$(.*)33uu\$\$', data)
-        if len(find_33uu) == 0:
+        tv_lists = {}
+        try:
+            find_33uu = re.findall('33uu\$\$(.*)33uu\$\$', data)
+            tv_lists['33uu'] = re.findall('%u7B2C(.*?)%u96C6\$https://(.*?)\$', find_33uu[0])#[(集数,url)]
+        except:
+            pass
+
+        try:
             find_zyp = re.findall('zyp\$\$(.*)zyp\$\$', data)
-            if len(find_zyp) != 0:
-                find = find_zyp[0]
-                label = 'zyp'
-        else:
-            find = find_33uu[0]
-            label = '33uu'
-        tv_lists = re.findall('%u7B2C(.*?)%u96C6\$https://(.*?)\$', find)#[(集数,url)]
-        return tv_lists, label
+            tv_lists['zyp'] = re.findall('%u7B2C(.*?)%u96C6\$https://(.*?)\$', find_zyp[0])#[(集数,url)]
+        except:
+            pass
+        
+        return tv_lists
 
     '''第二步、获取各个ts文件数量与名称'''
     def get_playlist(self, tv_lists, label):
         num = int(re.findall('player-(.*?).html', self.url)[0].split('-')[-1])
         url = 'https://' + tv_lists[num][-1]
         print('开始下载第'+str(num+1)+'集：\n'+url)
-        print('开始获取playlist_url')
+        print('开始获取playlist_url from '+url)
         ts_data = self.open_web(url).decode('utf-8')
 
         if label == '33uu':
+            #可直接解析出.m3u8文件的地址
             self.palylist_url = re.findall("url: '(.*?\.m3u8)'", ts_data)[-1]
-        else:#label='zyp'
-            self.palylist_url = re.findall("url: '(.*?\.m3u8)'", ts_data)[-1]
+        if label == 'zyp':
+            #先解析出.m3u8?sign的地址
+            sign = re.findall('var main = "(.*?\.m3u8.*?)"', ts_data)[-1]
+            #获取.m3u8文件地址
+            if sign.startswith('http'):
+                pass
+            else:
+                sign = re.findall('(http.*?\.com)', url)[0] + sign
+            res = self.open_web(sign).decode('utf-8')
+            self.palylist_url = url+'/'+re.findall('\n(.*?\.m3u8)', res)[-1]#'1000k/hls/index.m3u8'
 
         #url检查
         #/2019/04/03/dkqcLONDC9I26yyG/playlist.m3u8
@@ -108,7 +120,7 @@ class Xigua66Downloader:
         else:
             self.palylist_url = re.findall('(http.*?\.com)', url)[0] + self.palylist_url
         print(self.palylist_url)
-        print('开始获取playlist')
+        print('开始获取playlist from '+self.palylist_url)
         palylist_data = self.open_web(self.palylist_url).decode('utf-8')
         print('已获得playlist列表')
         ts_list = re.findall('#EXTINF:(.*?),\n(.*?)\n', palylist_data)#[(时间长度，ts文件名)]
@@ -118,6 +130,7 @@ class Xigua66Downloader:
     def download_with_single_process(self, ts_list):
         url_header = re.findall('(http.*/)', self.palylist_url)[0]
         print('开始单线程下载\n下载链接及情况：')
+        print('共有'+len(ts_list)+'个ts文件等待下载')
         for index, ts in enumerate(ts_list):
             if ts[-1].startswith('out'):
                 ts_url = url_header + ts[-1]
@@ -175,6 +188,7 @@ class Xigua66Downloader:
                 if os.path.splitext(file)[1] == '.ts':  
                     L.append(file)
         L.sort()
+        print('已下载'+len(L)+'个ts文件')
         blocks = [L[i:i+self.max_num] for i in range(0,len(L),self.max_num)]
 
         os.system('cd '+self.target)
@@ -196,14 +210,36 @@ class Xigua66Downloader:
     
     def main_process(self):
         available_IP = self.get_available_IP()
-        ts_list = self.get_playlist(available_IP)
+        label = '33uu'
+        try:
+            print('using '+label+':')
+            ts_list = self.get_playlist(available_IP[label], label)
+        except:
+            try:
+                label = 'zyp'
+                print('failed. now using '+label+':')
+                ts_list = self.get_playlist(available_IP[label], label)
+            except:
+                pass
         self.download_with_multi_process(ts_list)
         self.merge_ts_file_with_os()
     
 if __name__ == '__main__':
-    web_url= "http://www.xigua66.com/mainland/yitiantulongji2019/player-0-36.html"
+    #0-N
+    n=41
+    web_url= "http://www.xigua66.com/mainland/yitiantulongji2019/player-0-"+str(n-1)+".html"
     down = Xigua66Downloader(web_url)
-    available_IP, label = down.get_available_IP()
-    ts_list = down.get_playlist(available_IP, label)
+    available_IP= down.get_available_IP()
+    label = '33uu'
+    try:
+        print('using '+label+':')
+        ts_list = down.get_playlist(available_IP[label], label)
+    except:
+        try:
+            label = 'zyp'
+            print('failed. now using '+label+':')
+            ts_list = down.get_playlist(available_IP[label], label)
+        except:
+            pass
     down.download_with_multi_process(ts_list)
     down.merge_ts_file_with_os()
