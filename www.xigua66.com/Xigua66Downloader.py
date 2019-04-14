@@ -188,7 +188,7 @@ class Xigua66Downloader:
                 if os.path.splitext(file)[1] == '.ts':  
                     L.append(file)
         L.sort()
-        print('已下载'+len(L)+'个ts文件')
+        print('已下载'+str(len(L))+'个ts文件')
         blocks = [L[i:i+self.max_num] for i in range(0,len(L),self.max_num)]
 
         os.system('cd '+self.target)
@@ -226,7 +226,7 @@ class Xigua66Downloader:
     
 if __name__ == '__main__':
     #0-N
-    n=41
+    n=43
     web_url= "http://www.xigua66.com/mainland/yitiantulongji2019/player-0-"+str(n-1)+".html"
     down = Xigua66Downloader(web_url)
     available_IP= down.get_available_IP()
