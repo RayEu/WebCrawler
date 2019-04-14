@@ -164,7 +164,7 @@ class TXdanmuDownloader:
             pass
         #excel秒数转时间
         #=INT(E2/3600)&":"&INT((E2-INT(E2/3600)*3600)/60)&":"&E2-INT(E2/3600)*3600-INT((E2-INT(E2/3600)*3600)/60)*60
-        final_result.to_excel(self.target+'/'+self.name+'第'+str(self.e)+'集弹幕.xlsx', engine="xlsxwriter") #可以输出成EXCEL格式的文件
+        final_result.to_excel(self.target+'/'+self.name+'第'+str(self.e).zfill(2)+'集弹幕.xlsx', engine="xlsxwriter") #可以输出成EXCEL格式的文件
 
 if __name__ =="__main__":
     #https://blog.csdn.net/csdnsevenn/article/details/89089480
