@@ -5,20 +5,19 @@ import os
 import re
 import time
 import random
-from concurrent.futures import ThreadPoolExecutor
 
 class TXdanmuDownloader:
 
-    def __init__(self, url, target='.'):
+    def __init__(self, url, e, target='.'):
         self.target = target
         self.url = url
         self.name = ''
+        self.e = e
         self.headers={ "Accept":"text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",    
           "Accept-Language":"zh-CN,zh;q=0.8,en-US;q=0.5,en;q=0.3",    
           "User-Agent":"Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.122 Safari/537.36 SE 2.X MetaSr 1.0",    
           "Connection": "keep-alive"   
           }
-        self.pool = ThreadPoolExecutor(max_workers=10)
 
     #页面基本信息解析，获取构成弹幕网址所需的后缀ID、播放量、集数等信息。
     def parse_base_info(self, url):
@@ -101,7 +100,7 @@ class TXdanmuDownloader:
         df = df[~df['title'].str.contains('预告片')]
         self.name = list(df['title'])[0].split('_')[0]
         print('正在获取《'+self.name+'》的target_id')
-        count = 1
+        count = 0
         #创建一个列表存储target_id
         info_lst = []
         for i in df['id']:
@@ -109,7 +108,7 @@ class TXdanmuDownloader:
             info_lst.append(info)
             count += 1
             time.sleep(0.5 + random.random())
-        print('以获得《'+self.name+'》全部 '+str(count)+' 个target_id')
+        print('已获得《'+self.name+'》全部 '+str(count)+' 个target_id')
         #根据后缀ID，将target_id和后缀ID所在的表合并
         info_lst = pd.DataFrame(info_lst)
         info_lst.columns = ['v_id','target_id']
@@ -141,13 +140,13 @@ class TXdanmuDownloader:
         v_id = combine['v_id'][num-1]
         target_id = combine['target_id'][num-1]
         urls = self.format_url(target_id,v_id,page)
-        print('正在获得《'+self.name+'》第 '+str(num-1)+' 集的指定 '+str(page)+' 页弹幕')
+        print('正在获得《'+self.name+'》第 '+str(num)+' 集的指定 '+str(page)+' 页弹幕')
         count = 1
         for url in urls:
-            result = self.parse_danmu(url,target_id,v_id,num-1)
+            result = self.parse_danmu(url,target_id,v_id,num)
             final_result = pd.concat([final_result,result])
             count += 1
-        print('已获得《'+self.name+'》第 '+str(num-1)+' 集的指定 '+str(page)+' 页弹幕')
+        print('已获得《'+self.name+'》第 '+str(num)+' 集的指定 '+str(page)+' 页弹幕')
         return final_result
 
     def main(self):
@@ -158,11 +157,17 @@ class TXdanmuDownloader:
         #设置要爬取多少集（num参数），每一集爬取多少页弹幕（1-85页，page参数），
         #这里默认是爬取第一集的5页弹幕
         #比如想要爬取30集，每一集85页，num = 30,page = 85
-        final_result = self.crawl_single(combine,num = 46,page = 50)
-        final_result.to_excel(self.target+'/'+self.name+'弹幕.xlsx', engine="xlsxwriter") #可以输出成EXCEL格式的文件
+        try:
+            #报错说明弹幕已爬取完，页数不足1000页
+            final_result = self.crawl_single(combine, num=self.e, page=1000)
+        except:
+            pass
+        #excel秒数转时间
+        #=INT(E2/3600)&":"&INT((E2-INT(E2/3600)*3600)/60)&":"&E2-INT(E2/3600)*3600-INT((E2-INT(E2/3600)*3600)/60)*60
+        final_result.to_excel(self.target+'/'+self.name+'第'+str(self.e)+'集弹幕.xlsx', engine="xlsxwriter") #可以输出成EXCEL格式的文件
 
 if __name__ =="__main__":
     #https://blog.csdn.net/csdnsevenn/article/details/89089480
     url = 'https://v.qq.com/x/cover/ha7r9z89i9d234y/b00296wioni.html'
-    down = TXdanmuDownloader(url)
+    down = TXdanmuDownloader(url, 43)
     down.main()
