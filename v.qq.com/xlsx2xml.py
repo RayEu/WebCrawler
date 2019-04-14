@@ -22,6 +22,13 @@ num = re.findall('[0-9]{2}', filename)[0]
 f = open('E'+str(num).zfill(2)+'.xml', 'w', encoding='utf-8')
 f.write('<?xml version="1.0" encoding="UTF-8"?>')
 f.write('<i>')
+f.write('<chatserver>chat.bilibili.com</chatserver>')
+f.write('<chatid>85868779</chatid>')
+f.write('<mission>0</mission>')
+f.write('<maxlimit>1000</maxlimit>')
+f.write('<state>0</state>')
+f.write('<real_name>0</real_name>')
+f.write('<source>k-v</source>')
 
 workbook = xlrd.open_workbook(filename)
 sheet = workbook.sheet_by_index(0)
