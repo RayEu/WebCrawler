@@ -168,6 +168,6 @@ class TXdanmuDownloader:
 
 if __name__ =="__main__":
     #https://blog.csdn.net/csdnsevenn/article/details/89089480
-    url = 'https://v.qq.com/x/cover/ha7r9z89i9d234y/b00296wioni.html'
-    down = TXdanmuDownloader(url, 43)
+    url = 'https://v.qq.com/x/cover/br4nav8daqim2vu.html'
+    down = TXdanmuDownloader(url, 24)
     down.main()
