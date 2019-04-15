@@ -10,9 +10,10 @@ from concurrent.futures import ThreadPoolExecutor
 
 class Xigua66Downloader:
     
-    def __init__(self, url, target='.'):
+    def __init__(self, url, tv_type, target='.'):
         self.target = target
         self.url = url
+        self.tv_type = tv_type
         self.playlist_url = None
         self.max_num=250
         self.header={ "Accept":"text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",    
@@ -66,34 +67,56 @@ class Xigua66Downloader:
         else:            
             return response.read()
 
-    '''第一步、获取真正的url地址'''
-    def get_available_IP(self):
+    def get_source_data(self):
         print('开始获取真实的url')
         req = urllib.request.Request(url=self.url,headers=self.header)
         data = self.open_web(req).decode('gbk')
         target_js = re.findall('<ul id="playlist"><script type="text/javascript" src="(.*?)"></script>',data)[0]
         data = self.open_web("http://www.xigua66.com"+target_js).decode('gbk')
         data = urllib.parse.unquote(data)
+        return data
+
+    '''第一步、获取真正的url地址'''
+    def get_available_IP(self):
+        #有集数的，比如电视剧
+        data = self.get_source_data()
 
         tv_lists = {}
-        try:
-            find_33uu = re.findall('33uu\$\$(.*)33uu\$\$', data)
-            tv_lists['33uu'] = re.findall('%u7B2C(.*?)%u96C6\$https://(.*?)\$', find_33uu[0])#[(集数,url)]
-        except:
-            pass
+        if self.tv_type=='tv':
+            try:
+                find_33uu = re.findall('33uu\$\$(.*)33uu\$\$', data)
+                tv_lists['33uu'] = re.findall('%u7B2C(.*?)%u96C6\$https://(.*?)\$', find_33uu[0])#[(集数,url)]
+            except:
+                pass
 
-        try:
-            find_zyp = re.findall('zyp\$\$(.*)zyp\$\$', data)
-            tv_lists['zyp'] = re.findall('%u7B2C(.*?)%u96C6\$https://(.*?)\$', find_zyp[0])#[(集数,url)]
-        except:
-            pass
+            try:
+                find_zyp = re.findall('zyp\$\$(.*)zyp\$\$', data)
+                tv_lists['zyp'] = re.findall('%u7B2C(.*?)%u96C6\$https://(.*?)\$', find_zyp[0])#[(集数,url)]
+            except:
+                pass
+        if self.tv_type=='movie':
+            try:
+                find_33uu = re.findall('33uu\$\$(.*)33uu\$\$', data)
+                tv_lists['33uu'] = re.findall('\$(http.*?)\$', find_33uu[0])#[url]
+            except:
+                pass
+
+            try:
+                find_zyp = re.findall('zyp\$\$(.*)zyp\$\$', data)
+                tv_lists['zyp'] = re.findall('\$(http.*?)\$', find_zyp[0])#[url]
+            except:
+                pass
         
         return tv_lists
+
 
     '''第二步、获取各个ts文件数量与名称'''
     def get_playlist(self, tv_lists, label):
         num = int(re.findall('player-(.*?).html', self.url)[0].split('-')[-1])
-        url = 'https://' + tv_lists[num][-1]
+        if self.tv_type=='tv':
+            url = 'https://' + tv_lists[num][-1]
+        if self.tv_type=='movie':
+            url = tv_lists[0]
         print('开始下载第'+str(num+1)+'集：\n'+url)
         print('开始获取playlist_url from '+url)
         ts_data = self.open_web(url).decode('utf-8')
@@ -119,7 +142,6 @@ class Xigua66Downloader:
             pass
         else:
             self.palylist_url = re.findall('(http.*?\.com)', url)[0] + self.palylist_url
-        print(self.palylist_url)
         print('开始获取playlist from '+self.palylist_url)
         palylist_data = self.open_web(self.palylist_url).decode('utf-8')
         print('已获得playlist列表')
@@ -209,6 +231,7 @@ class Xigua66Downloader:
         pass
     
     def main_process(self):
+        self.tv_type='tv'
         available_IP = self.get_available_IP()
         label = '33uu'
         try:
@@ -228,7 +251,8 @@ if __name__ == '__main__':
     #0-N
     n=43
     web_url= "http://www.xigua66.com/mainland/yitiantulongji2019/player-0-"+str(n-1)+".html"
-    down = Xigua66Downloader(web_url)
+    web_url = 'http://www.xigua66.com/fiction/fuchouzhelianmeng/player-2-0.html'
+    down = Xigua66Downloader(web_url, 'movie')
     available_IP= down.get_available_IP()
     label = '33uu'
     try:
@@ -237,9 +261,10 @@ if __name__ == '__main__':
     except:
         try:
             label = 'zyp'
-            print('failed. now using '+label+':')
+            print('failed.\nnow using '+label+':')
             ts_list = down.get_playlist(available_IP[label], label)
         except:
+            print('failed')
             pass
     down.download_with_multi_process(ts_list)
     down.merge_ts_file_with_os()
