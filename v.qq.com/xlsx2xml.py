@@ -37,7 +37,8 @@ nrows = sheet.nrows#行
 for i in range(1, nrows):
     contents = sheet.cell(i, 2).value
     times = sheet.cell(i, 4).value
-    d = '<d p="'+str(times)+',1,18,15138834,1555065711,0,root,0">'+str(contents)+'</d>'
+    d = '<d p="'+str(times)+',1,25,16777215,1555065711,0,root,0">'+str(contents)+'</d>'
     f.write(d)
+workbook.release_resources()
 f.write('</i>')
 f.close()
